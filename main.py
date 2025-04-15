@@ -1,282 +1,182 @@
 import pygame
-import sys
+from pygame.locals import *
+from OpenGL.GL import *
+from OpenGL.GLU import *
 import math
 import random
-from pygame.locals import *
-pygame.init()
 
+def init():
+    pygame.init()
+    display = (800, 600)
+    pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
+    gluOrtho2D(0, display[0], display[1], 0)
+    glEnable(GL_POINT_SMOOTH)
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
-WIDTH, HEIGHT = 800, 600
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption('Futebol')
+def draw_circle(cx, cy, radius, filled=True):
+    glBegin(GL_TRIANGLE_FAN if filled else GL_LINE_LOOP)
+    for i in range(360):
+        angle = math.radians(i)
+        x = cx + radius * math.cos(angle)
+        y = cy + radius * math.sin(angle)
+        glVertex2f(x, y)
+    glEnd()
 
-WHITE = (255, 255, 255)
-GREEN = (0, 128, 0)
-BLACK = (0, 0, 0)
-RED = (255, 0, 0)
-BLUE = (0, 0, 255)
-YELLOW = (255, 255, 0)
+def draw_rect(x, y, width, height, filled=False):
+    if filled:
+        glBegin(GL_QUADS)
+    else:
+        glBegin(GL_LINE_LOOP)
+    glVertex2f(x, y)
+    glVertex2f(x + width, y)
+    glVertex2f(x + width, y + height)
+    glVertex2f(x, y + height)
+    glEnd()
 
-# Campo
-FIELD_WIDTH, FIELD_HEIGHT = 700, 500
-FIELD_X, FIELD_Y = (WIDTH - FIELD_WIDTH) // 2, (HEIGHT - FIELD_HEIGHT) // 2
-GOAL_WIDTH = 200
-GOAL_DEPTH = 20
-CENTER_CIRCLE_RADIUS = 50
+def draw_text(text, x, y, size=30):
+    font = pygame.font.SysFont('Arial', size, bold=True)
+    text_surface = font.render(text, True, (255, 255, 255, 255))
+    text_data = pygame.image.tostring(text_surface, "RGBA", True)
+    glWindowPos2d(x, y)
+    glDrawPixels(text_surface.get_width(), text_surface.get_height(),
+                GL_RGBA, GL_UNSIGNED_BYTE, text_data)
 
-# Bola
-ball_radius = 15
-ball_x = WIDTH // 2
-ball_y = HEIGHT // 2
-ball_speed_x = 0
-ball_speed_y = 0
-max_speed = 10
-friction = 0.98
-elasticity = 0.8
-
-
-score_blue = 0 # Placar e estatísticas
-score_red = 0
-crossbar_hits = 0
-font = pygame.font.SysFont('Arial', 36)
-small_font = pygame.font.SysFont('Arial', 18)
-
-
-players = [
-    {"x": FIELD_X + FIELD_WIDTH // 4, "y": FIELD_Y + FIELD_HEIGHT // 2, "color": BLUE, "team": "blue", "speed": 3}, # Jogadores
-    {"x": FIELD_X + 3 * FIELD_WIDTH // 4, "y": FIELD_Y + FIELD_HEIGHT // 2, "color": RED, "team": "red", "speed": 3},
-    {"x": FIELD_X + FIELD_WIDTH // 4, "y": FIELD_Y + FIELD_HEIGHT // 3, "color": BLUE, "team": "blue", "speed": 3},
-    {"x": FIELD_X + 3 * FIELD_WIDTH // 4, "y": FIELD_Y + 2 * FIELD_HEIGHT // 3, "color": RED, "team": "red", "speed": 3}
-]
-
-def draw_line_bresenham(surface, color, start, end, width=1):
-    x1, y1 = start
-    x2, y2 = end
-
-    dx = abs(x2 - x1)
-    dy = abs(y2 - y1)
-    steep = dy > dx
-    if steep:
-        x1, y1 = y1, x1
-        x2, y2 = y2, x2
-    if x1 > x2:
-        x1, x2 = x2, x1
-        y1, y2 = y2, y1
-    dx = abs(x2 - x1)
-    dy = abs(y2 - y1)
-    error = dx // 2
-    y_step = 1 if y1 < y2 else -1
-    y = y1
-    for x in range(x1, x2 + 1):
-        coord = (y, x) if steep else (x, y)
-        for w in range(width):
-            if 0 <= coord[0] < WIDTH and 0 <= coord[1] + w < HEIGHT:
-                surface.set_at((coord[0], coord[1] + w), color)
-            if 0 <= coord[0] + w < WIDTH and 0 <= coord[1] < HEIGHT:
-                surface.set_at((coord[0] + w, coord[1]), color)
-        error -= dy
-        if error < 0:
-            y += y_step
-            error += dx
-
-def draw_field():
-    pygame.draw.rect(screen, GREEN, (FIELD_X, FIELD_Y, FIELD_WIDTH, FIELD_HEIGHT))
-    draw_line_bresenham(screen, WHITE, (FIELD_X, FIELD_Y), (FIELD_X + FIELD_WIDTH, FIELD_Y), 2)
-    draw_line_bresenham(screen, WHITE, (FIELD_X, FIELD_Y + FIELD_HEIGHT), (FIELD_X + FIELD_WIDTH, FIELD_Y + FIELD_HEIGHT), 2)
-    draw_line_bresenham(screen, WHITE, (FIELD_X, FIELD_Y), (FIELD_X, FIELD_Y + FIELD_HEIGHT), 2)
-    draw_line_bresenham(screen, WHITE, (FIELD_X + FIELD_WIDTH, FIELD_Y), (FIELD_X + FIELD_WIDTH, FIELD_Y + FIELD_HEIGHT), 2)
-    draw_line_bresenham(screen, WHITE, (FIELD_X + FIELD_WIDTH // 2, FIELD_Y), (FIELD_X + FIELD_WIDTH // 2, FIELD_Y + FIELD_HEIGHT), 2)
-    pygame.draw.circle(screen, WHITE, (WIDTH // 2, HEIGHT // 2), CENTER_CIRCLE_RADIUS, 2)
-
-    pygame.draw.rect(screen, WHITE, (FIELD_X, FIELD_Y + FIELD_HEIGHT // 2 - 50, 50, 100), 2)
-    pygame.draw.rect(screen, WHITE, (FIELD_X, FIELD_Y + FIELD_HEIGHT // 2 - 100, 100, 200), 2)
-    pygame.draw.rect(screen, WHITE, (FIELD_X + FIELD_WIDTH - 50, FIELD_Y + FIELD_HEIGHT // 2 - 50, 50, 100), 2)
-    pygame.draw.rect(screen, WHITE, (FIELD_X + FIELD_WIDTH - 100, FIELD_Y + FIELD_HEIGHT // 2 - 100, 100, 200), 2)
-
-   
-    pygame.draw.rect(screen, YELLOW, (FIELD_X - GOAL_DEPTH, FIELD_Y + FIELD_HEIGHT // 2 - GOAL_WIDTH // 2, GOAL_DEPTH, GOAL_WIDTH), 3)
-    pygame.draw.rect(screen, YELLOW, (FIELD_X + FIELD_WIDTH, FIELD_Y + FIELD_HEIGHT // 2 - GOAL_WIDTH // 2, GOAL_DEPTH, GOAL_WIDTH), 3)
-
-def draw_players():
-    for i, player in enumerate(players):
-        pygame.draw.circle(screen, player["color"], (int(player["x"]), int(player["y"])), 20)
-        text = small_font.render(str(i + 1), True, WHITE)
-        screen.blit(text, (int(player["x"]) - 5, int(player["y"]) - 5))
-
-def move_players():
-    keys = pygame.key.get_pressed()
-    if keys[K_w]: players[0]["y"] -= players[0]["speed"]
-    if keys[K_s]: players[0]["y"] += players[0]["speed"]
-    if keys[K_a]: players[0]["x"] -= players[0]["speed"]
-    if keys[K_d]: players[0]["x"] += players[0]["speed"]
-
-    if keys[K_UP]: players[1]["y"] -= players[1]["speed"]
-    if keys[K_DOWN]: players[1]["y"] += players[1]["speed"]
-    if keys[K_LEFT]: players[1]["x"] -= players[1]["speed"]
-    if keys[K_RIGHT]: players[1]["x"] += players[1]["speed"]
-
-    for player in players:
-        player["x"] = max(FIELD_X + 20, min(FIELD_X + FIELD_WIDTH - 20, player["x"]))
-        player["y"] = max(FIELD_Y + 20, min(FIELD_Y + FIELD_HEIGHT - 20, player["y"]))
-
-def update_ball():
-    global ball_x, ball_y, ball_speed_x, ball_speed_y
-    ball_speed_x *= friction
-    ball_speed_y *= friction
-    ball_x += ball_speed_x
-    ball_y += ball_speed_y
-
-    if ball_x - ball_radius < FIELD_X or ball_x + ball_radius > FIELD_X + FIELD_WIDTH:
-        ball_speed_x *= -elasticity
-        ball_x = max(FIELD_X + ball_radius, min(FIELD_X + FIELD_WIDTH - ball_radius, ball_x))
-    if ball_y - ball_radius < FIELD_Y or ball_y + ball_radius > FIELD_Y + FIELD_HEIGHT:
-        ball_speed_y *= -elasticity
-        ball_y = max(FIELD_Y + ball_radius, min(FIELD_Y + FIELD_HEIGHT - ball_radius, ball_y))
-
-    for player in players:
-        dx = ball_x - player["x"]
-        dy = ball_y - player["y"]
-        distance = math.hypot(dx, dy)
-        if distance < ball_radius + 20:
-            if distance > 0:
-                dx /= distance
-                dy /= distance
-            overlap = (ball_radius + 20) - distance
-            ball_x += dx * overlap * 0.5
-            ball_y += dy * overlap * 0.5
-            impact = math.sqrt(ball_speed_x**2 + ball_speed_y**2)
-            ball_speed_x = dx * (impact + player["speed"] * 0.5)
-            ball_speed_y = dy * (impact + player["speed"] * 0.5)
-            speed = math.sqrt(ball_speed_x**2 + ball_speed_y**2)
-            if speed > max_speed:
-                ball_speed_x = (ball_speed_x / speed) * max_speed
-                ball_speed_y = (ball_speed_y / speed) * max_speed
-
-def check_goals_and_crossbar():
-    global score_blue, score_red, crossbar_hits, ball_x, ball_y, ball_speed_x, ball_speed_y
-
+def main():
+    init()
+    clock = pygame.time.Clock()
     
-    left_goal_line = FIELD_X - GOAL_DEPTH
-    right_goal_line = FIELD_X + FIELD_WIDTH + GOAL_DEPTH
-    goal_top = FIELD_Y + (FIELD_HEIGHT - GOAL_WIDTH) // 2
-    goal_bottom = FIELD_Y + (FIELD_HEIGHT + GOAL_WIDTH) // 2
+    # Configurações
+    ball_pos = [400, 300]
+    ball_vel = [0, 0]
+    ball_radius = 12
+    score = [0, 0]  # [Azul, Vermelho]
+    
+    # Gols visíveis (traves amarelas)
+    goals = [
+        {"x": 0, "y": 200, "width": 20, "height": 200, "team": "red"},    # Gol esquerdo
+        {"x": 780, "y": 200, "width": 20, "height": 200, "team": "blue"}  # Gol direito
+    ]
+    
+    # Campo principal
+    field_left = 50
+    field_right = 750
+    field_top = 50
+    field_bottom = 550
+    
+    # Jogadores
+    players = [
+        {"x": 200, "y": 300, "radius": 25, "color": (0, 0, 1)},
+        {"x": 600, "y": 300, "radius": 25, "color": (1, 0, 0)}
+    ]
 
-    
-    if ball_x - ball_radius <= left_goal_line: # Verificação do gol esquerdo (time vermelho)
-        if goal_top <= ball_y <= goal_bottom:
-            score_red += 1
-            show_goal_animation("RED")
-            reset_ball()
-        else:
-            
-            crossbar_hits += 1
-            ball_x = left_goal_line + ball_radius
-            ball_speed_x *= -0.7
-            ball_speed_y += random.uniform(-2, 2)
-
-    
-    elif ball_x + ball_radius >= right_goal_line: # Verificação do gol direito (time azul)
-        if goal_top <= ball_y <= goal_bottom:
-            score_blue += 1
-            show_goal_animation("BLUE")
-            reset_ball()
-        else:
-            
-            crossbar_hits += 1
-            ball_x = right_goal_line - ball_radius
-            ball_speed_x *= -0.7
-            ball_speed_y += random.uniform(-2, 2)
-
-def update_ball():
-    global ball_x, ball_y, ball_speed_x, ball_speed_y
-    
-    
-    ball_speed_x *= friction # Aplica atrito
-    ball_speed_y *= friction
-    
-    
-    ball_x += ball_speed_x # Atualiza posição
-    ball_y += ball_speed_y
-    
-
-    if ball_y - ball_radius < FIELD_Y or ball_y + ball_radius > FIELD_Y + FIELD_HEIGHT: # Colisão com as bordas do campo
-        ball_speed_y *= -elasticity
-        ball_y = max(FIELD_Y + ball_radius, min(FIELD_Y + FIELD_HEIGHT - ball_radius, ball_y))
-    
-    
-    for player in players: # Colisão com os jogadores
-        dx = ball_x - player["x"]
-        dy = ball_y - player["y"]
-        distance = math.hypot(dx, dy)
+    while True:
+        dt = 0.016  # Delta time para 60FPS
         
-        if distance < ball_radius + 20:  # 20 é o raio do jogador
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+        
+        # Controles
+        keys = pygame.key.get_pressed()
+        if keys[K_LEFT]: ball_vel[0] = max(-15, ball_vel[0] - 0.7)
+        if keys[K_RIGHT]: ball_vel[0] = min(15, ball_vel[0] + 0.7)
+        if keys[K_UP]: ball_vel[1] = max(-15, ball_vel[1] - 0.7)
+        if keys[K_DOWN]: ball_vel[1] = min(15, ball_vel[1] + 0.7)
+        
+        # Movimento
+        ball_pos[0] += ball_vel[0]
+        ball_pos[1] += ball_vel[1]
+        ball_vel[0] *= 0.96
+        ball_vel[1] *= 0.96
+        
+        # Colisão com bordas do campo
+        if ball_pos[1] - ball_radius < field_top:  # Topo
+            ball_pos[1] = field_top + ball_radius
+            ball_vel[1] *= -0.8
+        elif ball_pos[1] + ball_radius > field_bottom:  # Base
+            ball_pos[1] = field_bottom - ball_radius
+            ball_vel[1] *= -0.8
             
-            angle = math.atan2(dy, dx) # Calcula ângulo de colisão
+        # Verificação de GOL
+        for goal in goals:
+            if ((goal["x"] < ball_pos[0] < goal["x"] + goal["width"]) and 
+                (goal["y"] < ball_pos[1] < goal["y"] + goal["height"])):
+                
+                if goal["team"] == "blue":
+                    score[0] += 1
+                else:
+                    score[1] += 1
+                
+                # Reset com efeito
+                ball_pos = [400, 300]
+                ball_vel = [random.choice([-4,4]), random.uniform(-3,3)]
+                break
+        
+        # Colisão lateral (exceto na área dos gols)
+        if not (200 < ball_pos[1] < 400):  # Só colide fora da altura dos gols
+            if ball_pos[0] - ball_radius < field_left:  # Esquerda
+                ball_pos[0] = field_left + ball_radius
+                ball_vel[0] *= -0.8
+            elif ball_pos[0] + ball_radius > field_right:  # Direita
+                ball_pos[0] = field_right - ball_radius
+                ball_vel[0] *= -0.8
+        
+        # Colisão com jogadores
+        for player in players:
+            dx = ball_pos[0] - player["x"]
+            dy = ball_pos[1] - player["y"]
+            distance = math.sqrt(dx*dx + dy*dy)
             
-           
-            overlap = (ball_radius + 20) - distance   # Ajusta posição para evitar sobreposição
-            ball_x += math.cos(angle) * overlap * 0.5
-            ball_y += math.sin(angle) * overlap * 0.5
-            
-            
-            player_speed = math.hypot(players[0]["speed"], players[1]["speed"])# Calcula força do chute baseada na velocidade do jogador e direção
-            kick_power = 0.5 + player_speed * 0.3
-            
-           
-            ball_speed_x = math.cos(angle) * kick_power * max_speed # Aplica nova velocidade com direção do chute
-            ball_speed_y = math.sin(angle) * kick_power * max_speed
-            
-            
-            speed = math.hypot(ball_speed_x, ball_speed_y) # Limita velocidade máxima
-            if speed > max_speed:
-                ball_speed_x = (ball_speed_x / speed) * max_speed
-                ball_speed_y = (ball_speed_y / speed) * max_speed
-            
-def reset_ball():
-    global ball_x, ball_y, ball_speed_x, ball_speed_y
-    ball_x = WIDTH // 2
-    ball_y = HEIGHT // 2
-    ball_speed_x = random.choice([-1, 1]) * 2
-    ball_speed_y = random.uniform(-1, 1) * 2
-    pygame.time.delay(800)
+            if distance < ball_radius + player["radius"]:
+                angle = math.atan2(dy, dx)
+                min_dist = ball_radius + player["radius"]
+                ball_pos[0] = player["x"] + math.cos(angle) * min_dist
+                ball_pos[1] = player["y"] + math.sin(angle) * min_dist
+                speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2) * 1.2
+                ball_vel[0] = math.cos(angle) * speed
+                ball_vel[1] = math.sin(angle) * speed
+        
+        # Renderização
+        glClear(GL_COLOR_BUFFER_BIT)
+        
+        # Fundo
+        glColor3f(0.2, 0.2, 0.2)
+        draw_rect(0, 0, 800, 600, True)
+        
+        # Campo principal (gramado)
+        glColor3f(0.1, 0.5, 0.1)
+        draw_rect(field_left, field_top, field_right-field_left, field_bottom-field_top, True)
+        
+        # Linhas do campo
+        glColor3f(1, 1, 1)
+        draw_rect(field_left, field_top, field_right-field_left, field_bottom-field_top, False)
+        glBegin(GL_LINES)
+        glVertex2f(400, field_top)
+        glVertex2f(400, field_bottom)
+        glEnd()
+        draw_circle(400, 300, 50, False)
+        
+        # Gols (traves amarelas - agora visíveis)
+        glColor3f(1, 1, 0)
+        for goal in goals:
+            draw_rect(goal["x"], goal["y"], goal["width"], goal["height"], False)
+        
+        # Jogadores
+        for player in players:
+            glColor3fv(player["color"])
+            draw_circle(player["x"], player["y"], player["radius"], True)
+        
+        # Bola
+        glColor3f(1, 1, 1)
+        draw_circle(ball_pos[0], ball_pos[1], ball_radius, True)
+        
+        # Placar corrigido (sem "AZULO")
+        draw_text(f"AZUL {score[0]} x {score[1]} VERMELHO", 250, 20, 40)
+        
+        pygame.display.flip()
+        clock.tick(60)
 
-def show_goal_animation(team):
-    font_large = pygame.font.SysFont('Arial', 72, bold=True)
-    screen_rect = screen.get_rect()
-    color = BLUE if team == "BLUE" else RED
-    text = font_large.render(f"GOOOOL DO {team}!", True, color)
-    text_rect = text.get_rect(center=screen_rect.center)
-    overlay = pygame.Surface((text_rect.width + 40, text_rect.height + 40), pygame.SRCALPHA)
-    overlay.fill((0, 0, 0, 180))
-    screen.blit(overlay, (text_rect.x - 20, text_rect.y - 20))
-    screen.blit(text, text_rect)
-    pygame.display.update()
-    pygame.time.delay(1500)
-
-
-clock = pygame.time.Clock() # Loop principal
-running = True
-while running:
-    screen.fill(BLACK)
-    draw_field()
-    move_players()
-    update_ball()
-    check_goals_and_crossbar()
-    draw_players()
-    pygame.draw.circle(screen, WHITE, (int(ball_x), int(ball_y)), ball_radius)
-
-    score_text = font.render(f"{score_blue} - {score_red}", True, WHITE)
-    screen.blit(score_text, (WIDTH // 2 - score_text.get_width() // 2, 10))
-
-    crossbar_text = small_font.render(f"Traves: {crossbar_hits}", True, YELLOW)
-    screen.blit(crossbar_text, (10, HEIGHT - 30))
-
-    for event in pygame.event.get():
-        if event.type == QUIT:
-            running = False
-
-    pygame.display.flip()
-    clock.tick(60)
-
-pygame.quit()
-sys.exit()
+if __name__ == "__main__":
+    main()

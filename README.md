@@ -1,40 +1,36 @@
-# projeto computação grafica - campo de futebol
- Este projeto tem como objetivo aplicar conceitos de computação gráfica utilizando OpenGL para criar uma simulação de futebol em 2D. O projeto envolve a implementação de diversos elementos gráficos e dinâmicos para criar uma experiência interativa de um campo de futebol virtual.
+Jogo de Futebol 2D com OpenGL
+Descrição
+Um jogo de futebol 2D implementado em Python utilizando Pygame e OpenGL, com renderização gráfica baseada em primitivas OpenGL e física simplificada.
 
-Futebol 2D Aprimorado
-Um jogo simples de futebol 2D feito com Python e Pygame, utilizando o algoritmo de Bresenham para desenhar o campo. Inclui movimentação dos jogadores, colisão com a bola, gols, placar e uma física básica com atrito e elasticidade.
+Funcionalidades Principais
+⚽ Bola controlável pelo teclado (setas direcionais)
 
-Funcionalidades
-Campo desenhado com o algoritmo de Bresenham
+🥅 Dois gols com sistema de pontuação
 
-2 times (Azul e Vermelho) com 2 jogadores cada
+📊 Placar visível mostrando os pontos de cada time
 
-Movimentação por teclado para dois jogadores
+👥 Jogadores estáticos como obstáculos
 
-Física com atrito, elasticidade e colisão com jogadores
+🎯 Física realista com colisões e atrito
 
-Detecção de gols e hits na trave
+🖌️ Renderização OpenGL de todas as formas geométricas
+Requisitos
+Python 3.6+
 
-Placar em tempo real
+Pygame (pip install pygame)
 
-Animação de "GOOOOL"
+PyOpenGL (pip install PyOpenGL)
 
-Controles
-Time Azul (Jogador 1):
-W - Cima
+Como Executar
+Clone o repositório ou copie o código
 
-S - Baixo
+Instale as dependências:
 
-A - Esquerda
+bash
 
-D - Direita
+pip install pygame PyOpenGL
+Execute o jogo:
 
-Time Vermelho (Jogador 2):
-Setas ↑ ↓ ← → - Movimentação
- # Requisitos
- Python 3.8+
+bash
 
-Biblioteca pygame
-
-Autor
-João Victor Santos Ribeiro da Silva
+python main.py

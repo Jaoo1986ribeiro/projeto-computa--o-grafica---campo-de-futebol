@@ -114,7 +114,7 @@ def main():
                 ball_vel = [random.choice([-4,4]), random.uniform(-3,3)]
                 break
         
-        # Colisão lateral (exceto na área dos gols)
+        # Colisão lateral 
         if not (200 < ball_pos[1] < 400):  # Só colide fora da altura dos gols
             if ball_pos[0] - ball_radius < field_left:  # Esquerda
                 ball_pos[0] = field_left + ball_radius
@@ -145,7 +145,7 @@ def main():
         glColor3f(0.2, 0.2, 0.2)
         draw_rect(0, 0, 800, 600, True)
         
-        # Campo principal (gramado)
+        # Campo principal 
         glColor3f(0.1, 0.5, 0.1)
         draw_rect(field_left, field_top, field_right-field_left, field_bottom-field_top, True)
         
@@ -158,7 +158,7 @@ def main():
         glEnd()
         draw_circle(400, 300, 50, False)
         
-        # Gols (traves amarelas - agora visíveis)
+        # Gols 
         glColor3f(1, 1, 0)
         for goal in goals:
             draw_rect(goal["x"], goal["y"], goal["width"], goal["height"], False)
@@ -172,7 +172,7 @@ def main():
         glColor3f(1, 1, 1)
         draw_circle(ball_pos[0], ball_pos[1], ball_radius, True)
         
-        # Placar corrigido (sem "AZULO")
+        
         draw_text(f"AZUL {score[0]} x {score[1]} VERMELHO", 250, 20, 40)
         
         pygame.display.flip()

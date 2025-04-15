@@ -52,7 +52,7 @@ def main():
     ball_radius = 12
     score = [0, 0]  # [Azul, Vermelho]
     
-    # Gols visíveis (traves amarelas)
+    # Gols 
     goals = [
         {"x": 0, "y": 200, "width": 20, "height": 200, "team": "red"},    # Gol esquerdo
         {"x": 780, "y": 200, "width": 20, "height": 200, "team": "blue"}  # Gol direito

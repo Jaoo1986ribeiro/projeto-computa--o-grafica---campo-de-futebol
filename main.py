@@ -8,7 +8,7 @@ pygame.init()
 
 WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption('Futebol 2D Aprimorado')
+pygame.display.set_caption('Futebol')
 
 WHITE = (255, 255, 255)
 GREEN = (0, 128, 0)
